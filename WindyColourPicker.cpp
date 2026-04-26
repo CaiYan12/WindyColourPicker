@@ -99,7 +99,6 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
             margin: -8px 0;
             border-radius: 10px;
             border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         QSlider::handle:horizontal:hover { background: #1084D9; }
         QSlider { min-height: 30px; max-height: 30px; }
