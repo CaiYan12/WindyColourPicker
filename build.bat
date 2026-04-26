@@ -18,6 +18,9 @@ echo [5/5] 部署 Qt 依赖库...
 cd release
 windeployqt WindyColourPicker.exe --no-translations --no-system-d3d-compiler --no-opengl-sw
 
+echo [6/6] 清理中间文件...
+call "%~dp0clean_release.bat"
+
 echo.
 echo ========================================
 echo 构建完成！
