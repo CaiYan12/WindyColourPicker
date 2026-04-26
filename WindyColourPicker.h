@@ -8,6 +8,7 @@
 #include <QFormLayout>
 #include <QKeyEvent>
 #include <QSlider>
+#include <QLabel>
 
 class ColorWheel;
 class ColorTipWidget;
@@ -20,12 +21,13 @@ public:
     WindyColourPicker(QWidget *parent = nullptr);
     ~WindyColourPicker();
     void updateColorDisplay(const QColor& color);
+    void moveTipTo(const QPoint& pos);
+    void stopPicking();
 
 private slots:
     void togglePickMode(bool checked); // 只保留这一个需要的
 
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
@@ -37,7 +39,10 @@ private:
     QLineEdit* m_lblRgba;
     QSlider* m_sliderValue;
     QSlider* m_sliderAlpha;
+    QLabel* m_lblValueNum;
+    QLabel* m_lblAlphaNum;
     ColorTipWidget* m_tipWidget;
+    QLabel* m_colorPreview;
     bool m_isPicking;
     QColor m_currentColor;
 };

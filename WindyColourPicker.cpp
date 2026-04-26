@@ -11,7 +11,7 @@
 #include <QLineEdit>
 #include <QFrame>
 #include <QLabel>
-#include <QSignalBlocker>
+
 
 // 全局钩子与窗口指针
 static HHOOK g_mouseHook = nullptr;
@@ -26,8 +26,7 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
             COLORREF color = GetPixel(hdcScreen, pMouse->pt.x, pMouse->pt.y);
             ReleaseDC(NULL, hdcScreen);
             g_mainWindow->updateColorDisplay(QColor(GetRValue(color), GetGValue(color), GetBValue(color), 255));
-            auto tipWidget = g_mainWindow->findChild<ColorTipWidget*>();
-            if (tipWidget) tipWidget->move(cursorPos + QPoint(20, 20));
+            g_mainWindow->moveTipTo(cursorPos + QPoint(20, 20));
         }, Qt::QueuedConnection);
     }
     return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
@@ -145,25 +144,35 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
     
     QWidget* valRow = new QWidget();
     QHBoxLayout* valRowLayout = new QHBoxLayout(valRow);
-    valRowLayout->setSpacing(12);
+    valRowLayout->setSpacing(8);
     QLabel* lblVal = new QLabel("明度");
     lblVal->setStyleSheet("font-size: 13px; color: #444; font-weight: 500; min-width: 50px;");
     m_sliderValue = new QSlider(Qt::Horizontal, this);
     m_sliderValue->setRange(0, 255);
     m_sliderValue->setValue(255);
+    m_lblValueNum = new QLabel("255");
+    m_lblValueNum->setFixedWidth(30);
+    m_lblValueNum->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_lblValueNum->setStyleSheet("font-size: 13px; color: #333; font-weight: 500;");
     valRowLayout->addWidget(lblVal);
     valRowLayout->addWidget(m_sliderValue);
+    valRowLayout->addWidget(m_lblValueNum);
 
     QWidget* alphaRow = new QWidget();
     QHBoxLayout* alphaRowLayout = new QHBoxLayout(alphaRow);
-    alphaRowLayout->setSpacing(12);
+    alphaRowLayout->setSpacing(8);
     QLabel* lblAlpha = new QLabel("透明度");
     lblAlpha->setStyleSheet("font-size: 13px; color: #444; font-weight: 500; min-width: 50px;");
     m_sliderAlpha = new QSlider(Qt::Horizontal, this);
     m_sliderAlpha->setRange(0, 255);
     m_sliderAlpha->setValue(255);
+    m_lblAlphaNum = new QLabel("255");
+    m_lblAlphaNum->setFixedWidth(30);
+    m_lblAlphaNum->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_lblAlphaNum->setStyleSheet("font-size: 13px; color: #333; font-weight: 500;");
     alphaRowLayout->addWidget(lblAlpha);
     alphaRowLayout->addWidget(m_sliderAlpha);
+    alphaRowLayout->addWidget(m_lblAlphaNum);
 
     sliderLayout->addWidget(valRow);
     sliderLayout->addWidget(alphaRow);
@@ -180,9 +189,10 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
     rightLayout->setSpacing(16);
 
     // 按钮
-    m_btnPick = new QPushButton("🎯 开启取色模式", this);
+    m_btnPick = new QPushButton("🎯 开始取色 (空格)", this);
     m_btnPick->setCheckable(true);
     m_btnPick->setCursor(Qt::PointingHandCursor);
+    m_btnPick->setFocusPolicy(Qt::NoFocus);
     
     m_btnPick->setStyleSheet(R"(
         QPushButton {
@@ -216,6 +226,7 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
     colorPreview->setObjectName("ColorPreview");
     colorPreview->setStyleSheet("background-color: #FF0000; border-radius: 8px;");
     previewLayout->addWidget(colorPreview);
+    m_colorPreview = colorPreview;
     rightLayout->addWidget(previewCard);
 
     // 颜色信息
@@ -250,6 +261,7 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
     });
     
     connect(m_sliderValue, &QSlider::valueChanged, this, [this](int value){
+        m_lblValueNum->setText(QString::number(value));
         m_colorWheel->setValue(value / 255.0);
         int h, s, v, a;
         m_currentColor.getHsv(&h, &s, &v, &a);
@@ -258,6 +270,7 @@ WindyColourPicker::WindyColourPicker(QWidget *parent) : QWidget(parent), m_isPic
     });
     
     connect(m_sliderAlpha, &QSlider::valueChanged, this, [this](int value){
+        m_lblAlphaNum->setText(QString::number(value));
         m_currentColor.setAlpha(value);
         this->updateColorDisplay(m_currentColor);
     });
@@ -267,17 +280,24 @@ WindyColourPicker::~WindyColourPicker() {
     if (g_mouseHook) UnhookWindowsHookEx(g_mouseHook);
 }
 
+void WindyColourPicker::moveTipTo(const QPoint& pos) {
+    if (m_tipWidget) m_tipWidget->move(pos);
+}
+
+void WindyColourPicker::stopPicking() {
+    if (m_btnPick) m_btnPick->setChecked(false);
+}
+
 void WindyColourPicker::togglePickMode(bool checked) {
     m_isPicking = checked;
     if (checked) {
-        m_btnPick->setText("⏹️ 停止取色 (按ESC)");
+        m_btnPick->setText("⏹️ 停止取色 (Esc)");
         g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseProc, GetModuleHandle(NULL), 0);
-        m_tipWidget->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-        m_tipWidget->setAttribute(Qt::WA_ShowWithoutActivating);
         m_tipWidget->show();
+        setFocus(Qt::OtherFocusReason);
         grabKeyboard();
     } else {
-        m_btnPick->setText("🎯 开启取色模式");
+        m_btnPick->setText("🎯 开始取色 (空格)");
         if (g_mouseHook) UnhookWindowsHookEx(g_mouseHook);
         m_tipWidget->hide();
         releaseKeyboard();
@@ -294,9 +314,9 @@ void WindyColourPicker::updateColorDisplay(const QColor& color) {
     int h, s, v; color.getHsv(&h, &s, &v);
     m_lblHsv->setText(QString("%1°, %2%, %3%").arg(h).arg(s/255.0*100, 0, 'f', 0).arg(v/255.0*100, 0, 'f', 0));
 
-    QString style = QString("background-color: rgba(%1, %2, %3, %4); border-radius: 8px;")
-                        .arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha());
-    findChild<QLabel*>("ColorPreview")->setStyleSheet(style);
+    m_colorPreview->setStyleSheet(
+        QString("background-color: rgba(%1, %2, %3, %4); border-radius: 8px;")
+            .arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha()));
 
     // 同步滑块
     {
@@ -304,6 +324,8 @@ void WindyColourPicker::updateColorDisplay(const QColor& color) {
         QSignalBlocker b2(m_sliderAlpha);
         m_sliderValue->setValue(v);
         m_sliderAlpha->setValue(color.alpha());
+        m_lblValueNum->setText(QString::number(v));
+        m_lblAlphaNum->setText(QString::number(color.alpha()));
     }
 
     // 取色模式下同步色盘指针
@@ -315,11 +337,14 @@ void WindyColourPicker::updateColorDisplay(const QColor& color) {
     m_tipWidget->setColor(color);
 }
 
-bool WindyColourPicker::eventFilter(QObject *watched, QEvent *event) {
-    return QWidget::eventFilter(watched, event);
-}
-
 void WindyColourPicker::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape && m_isPicking) m_btnPick->setChecked(false);
+    if (event->key() == Qt::Key_Escape && m_isPicking) {
+        stopPicking();
+        return;
+    }
+    if (event->key() == Qt::Key_Space && !m_isPicking) {
+        m_btnPick->setChecked(true);
+        return;
+    }
     QWidget::keyPressEvent(event);
 }

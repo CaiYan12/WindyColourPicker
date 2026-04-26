@@ -55,50 +55,43 @@ void ColorWheel::paintEvent(QPaintEvent *)
 }
 
 void ColorWheel::mousePressEvent(QMouseEvent *event) {
-    if (event->button() == Qt::LeftButton) {
-        m_selectorPos = event->pos();
-        m_currentColor = colorFromPos(m_selectorPos);
-        update();
-        emit colorChanged(m_currentColor);
-    }
+    if (event->button() == Qt::LeftButton) handleMouseEvent(event->pos());
 }
 
 void ColorWheel::mouseMoveEvent(QMouseEvent *event) {
-    if (event->buttons() & Qt::LeftButton) {
-        m_selectorPos = event->pos();
-        m_currentColor = colorFromPos(m_selectorPos);
-        update();
-        emit colorChanged(m_currentColor);
-    }
+    if (event->buttons() & Qt::LeftButton) handleMouseEvent(event->pos());
 }
 
-QColor ColorWheel::colorFromPos(const QPointF &pos) {
+void ColorWheel::handleMouseEvent(const QPointF& pos) {
     QPointF center = m_wheelRect.center();
     qreal dx = pos.x() - center.x();
     qreal dy = pos.y() - center.y();
-    qreal distance = qSqrt(dx*dx + dy*dy);
-    qreal radius = m_wheelRect.width()/2.0;
-    
-    // 严格限制指针在圆形范围内
-    if (distance > radius) {
-        distance = radius;
-        qreal ratio = radius / qSqrt(dx*dx + dy*dy);
-        dx *= ratio;
-        dy *= ratio;
-        m_selectorPos = QPointF(center.x() + dx, center.y() + dy);
-    }
-    
+    qreal dist = qSqrt(dx * dx + dy * dy);
+    qreal radius = m_wheelRect.width() / 2.0;
+    qreal effectiveDist = qMin(dist, radius);
+    qreal ratio = effectiveDist / qMax(dist, 1e-9);
+    m_selectorPos = QPointF(center.x() + dx * ratio, center.y() + dy * ratio);
+    m_currentColor = colorFromPos(m_selectorPos);
+    update();
+    emit colorChanged(m_currentColor);
+}
+
+QColor ColorWheel::colorFromPos(const QPointF &pos) const {
+    QPointF center = m_wheelRect.center();
+    qreal dx = pos.x() - center.x();
+    qreal dy = pos.y() - center.y();
+    qreal distance = qSqrt(dx * dx + dy * dy);
+    qreal radius = m_wheelRect.width() / 2.0;
+    qreal limitedDist = qMin(distance, radius);
+
     // 计算角度
     qreal angle = qAtan2(dy, dx) * 180.0 / M_PI;
-    angle = angle + 180.0; // 0-360
-    
-    // 最终修正：加上180度旋转，抵消对称误差
+    angle = angle + 180.0;
     angle = std::fmod(angle + 180.0, 360.0);
-    
     qreal h = (360.0 - angle) / 360.0;
-    
+
     QColor color;
-    color.setHsvF(h, distance/radius, m_value);
+    color.setHsvF(h, limitedDist / radius, m_value);
     return color;
 }
 

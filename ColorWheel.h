@@ -23,6 +23,7 @@ private:
     QPointF m_selectorPos;
     QRectF m_wheelRect;
     qreal m_value; // 新增：存储当前明度
-    QColor colorFromPos(const QPointF &pos);
+    QColor colorFromPos(const QPointF &pos) const;
     void updateSelectorFromColor(const QColor& color);
+    void handleMouseEvent(const QPointF& pos);
 };

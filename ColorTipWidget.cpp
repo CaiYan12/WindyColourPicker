@@ -2,12 +2,12 @@
 #include <QPainter>
 #include <QPainterPath>
 
-ColorTipWidget::ColorTipWidget(QWidget *parent) : QWidget(parent)
+ColorTipWidget::ColorTipWidget(QWidget *parent) : QWidget(parent), m_color(Qt::black)
 {
     setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_ShowWithoutActivating);
     setFixedSize(200, 60);
-    m_color = Qt::black;
 }
 
 void ColorTipWidget::setColor(const QColor& color) { m_color = color; update(); }
