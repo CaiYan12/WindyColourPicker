@@ -2,6 +2,7 @@
 build/
 debug/
 release/
+dist/
 
 # Qt Creator
 *.pro.user
